@@ -1,5 +1,29 @@
 ---
 
+- name: Restart database in safe mode
+  service:
+    name: 'mysql'
+    state: 'stopped'
+
+- name: Start database in safe mode
+  shell: mysqld_safe --skip-grant-tables &
+
+- name: Update database root password
+  shell: mysql -uroot mysql --execute="UPDATE user SET password=PASSWORD('{{ mariadb_server__root_password }}') WHERE User='root'; FLUSH PRIVILEGES;"
+
+- name: Create /root/.my.cnf file with root credentials
+  template:
+    src: 'root/my.cnf.j2'
+    dest: '/root/.my.cnf'
+    owner: 'root'
+    group: 'root'
+    mode: '0600'
+
+- name: Restart database
+  service:
+    name: 'mysql'
+    state: 'restarted'
+
 - name: Drop unnecessary root accounts
   mysql_user:
     name: 'root'
@@ -9,20 +33,6 @@
     - [ '127.0.0.1', '::1' ]
     - [ '{{ ansible_hostname if (ansible_hostname != "localhost") else [] }}' ]
   when: item|d()
-
-- name: Update database root password
-  mysql_user:
-    name: 'root'
-    host: 'localhost'
-    password: '{{ mariadb_server__root_password }}'
-
-- name: Create /root/.my.cnf file with root credentials
-  template:
-    src: 'root/my.cnf.j2'
-    dest: '/root/.my.cnf'
-    owner: 'root'
-    group: 'root'
-    mode: '0600'
 
 - name: Delete anonymous database user
   mysql_user:
